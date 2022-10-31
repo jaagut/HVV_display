@@ -1,4 +1,5 @@
 update_period: 30  # sec
+max_failures: 10  # Stop main loop after X successive failures
 
 api:
   auth:

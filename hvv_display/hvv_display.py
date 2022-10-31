@@ -8,20 +8,11 @@ from typing import Any, Optional, Dict, List
 import yaml
 from PIL import Image
 
-from hvv_display_client.api.departure_list_controller import departure_list
-from hvv_display_client.client import AuthenticatedClient
-from hvv_display.hvv_display_client.models.dl_request_filter_type import (
-    DLRequestFilterType,
-)
-from hvv_display.hvv_display_client.models.dl_response_return_code import DLResponseReturnCode
-from hvv_display.hvv_display_client.models.dl_response_service_types_item import (
-    DLResponseServiceTypesItem,
-)
-from hvv_display.hvv_display_client.models.sd_name import SDName
-from hvv_display_client.models.departure import Departure
-from hvv_display_client.models.dl_request import DLRequest
-from hvv_display_client.models.dl_response import DLResponse
-from hvv_display_client.models.gti_time import GTITime
+from hvv_display.hvv_display_client.client import AuthenticatedClient
+from hvv_display.hvv_display_client import models
+from hvv_display.hvv_display_client.api.departure_list_controller import departure_list
+from hvv_display.hvv_display_client.api.init_request_controller import init
+
 
 logging.basicConfig(level=logging.DEBUG)  # TODO: INFO
 
@@ -39,25 +30,44 @@ class HvvDisplay:
             self.config: Dict[str, Any] = yaml.safe_load(f)
 
         self.client: AuthenticatedClient = self.connect()
+        if self.client is None:  # Connection could not be established
+            return  # Exit
 
-        self.run(self.config["update_period"])
+        self.run(self.config["update_period"], self.config['max_failures'])
 
     def connect(self) -> AuthenticatedClient:
         """Returns a client connected and authenticated to the Geofox API.
 
-        :return: Connected client
+        :raises RuntimeError: Could not create connection to Geofox API.
+        :return: Connected Geofox API client
         :rtype: AuthenticatedClient
         """
         client = AuthenticatedClient(
             self.config["api"]["auth"]["base_url"],
             self.config["api"]["auth"]["token"],
         )
-        return client
+
+        init_request = models.InitRequest(
+            version=self.config["api"]["version"],
+            language=self.config["api"]["language"],
+            filter_type=models.DLRequestFilterType.HVV_LISTED,
+        )
+
+        init_response : models.InitResponse = init.sync_detailed(
+            client=self.client,
+            json_body=init_request,
+        )
+
+        if init_response.return_code == models.InitResponseReturnCode.OK:
+            return client
+        else:
+            self.logger.error(f"Could not create connection to Geofox API. Error '{init_response.return_code}':\n'{init_response.error_text}'\n'{init_response.error_dev_info}'")
+            raise RuntimeError(init_response.error_dev_info)
 
     def shutdown(self):
         self.logger.info("Shutting down")
 
-    def run(self, period: int):
+    def run(self, period: int, max_failures: int):
         """Runs the main loop:
         - Query departures,
         - Draw them on a canvas, and
@@ -65,57 +75,72 @@ class HvvDisplay:
 
         :param sleep: Time in seconds to sleep between updates
         :type sleep: int
+        :param max_failures: Number of successive failures when to stop main loop
+        :type max_failures: int
         """
         self.logger.debug(f"Update period: {period}")
 
+        failure_counter : int = 0  # If reaches max_failures, abort loop
+
         try:
-            while True:  # Main loop
+            while failure_counter <= max_failures:  # Main loop
+                time.sleep(period)  # Sleep between updates
                 self.logger.debug("Updating...")
-                departures: List[Departure] = self.get_departures()
-                if departures is  not None:
+                try:
+                    departures: List[models.Departure] = self.get_departures()
                     canvas: Image = self.draw(departures)
                     self.show(canvas)
+                except (
+                    RuntimeWarning,
+                    RuntimeError,
+                ):
+                    failure_counter += 1
+                else:  # Successful run -> reset failure counter
+                    failure_counter = 0
 
-                time.sleep(period)  # Sleep between updates
         except KeyboardInterrupt:
             self.shutdown()
 
-    def get_departures(self) -> Optional[List[Departure]]:
+    def get_departures(self) -> List[models.Departure]:
         """Get next departures from API.
 
-        :return: List of departures.
-        :rtype: List[Departure]
+        :raises RuntimeWarning: Could not receive departures successfully
+        :return: List of departures
+        :rtype: List[models.Departure]
         """
-        dl_request = DLRequest(
+        dl_request = models.DLRequest(
             version=self.config["api"]["version"],
             language=self.config["api"]["language"],
-            filter_type=DLRequestFilterType.HVV_LISTED,
-            time=GTITime("jetzt"),  # Now
+            filter_type=models.DLRequestFilterType.HVV_LISTED,
+            time=models.GTITime("jetzt"),  # Now
             stations=[
-                SDName(station["name"], station["city"])
+                models.SDName(station["name"], station["city"])
                 for station in self.config["request"]["stations"]
             ],
             max_list=self.config["api"]["max_list"],
             service_types=[
-                DLResponseServiceTypesItem.UBAHN,
-                DLResponseServiceTypesItem.XPRESSBUS,
+                models.DLResponseServiceTypesItem.UBAHN,
+                models.DLResponseServiceTypesItem.XPRESSBUS,
             ],
             use_realtime=True,
         )
 
-        response: DLResponse = departure_list.sync_detailed(
+        dl_response: models.DLResponse = departure_list.sync_detailed(
             client=self.client,
             json_body=dl_request,
         )
 
-        if response.return_code == DLResponseReturnCode.OK:
-            return response.departures
+        if dl_response.return_code == models.DLResponseReturnCode.OK:
+            return dl_response.departures
+        else:
+            self.logger.warning(f"Could not receive departures successfully. Error: '{dl_response.return_code}'\n'{dl_response.error_text}'\n'{dl_response.error_dev_info}'")
+            raise RuntimeWarning(dl_response.error_dev_info)
 
-    def draw(self, departures: List[Departure]) -> Image:
+    def draw(self, departures: List[models.Departure]) -> Image:
         """Draws departures on a blank canvas.
 
         :param departures: List of departures to draw
-        :type departures: List[Departure]
+        :type departures: List[models.Departure]
         :return: Canvas with drawn departures
         :rtype: Image
         """
