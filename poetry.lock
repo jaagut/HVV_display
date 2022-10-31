@@ -279,7 +279,7 @@ six = ">=1.5"
 name = "PyYAML"
 version = "6.0"
 description = "YAML parser and emitter for Python"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.6"
 
@@ -357,7 +357,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "c02f2af28f75c3a7e8d22d40c16ab64e52da562147197de604bf7ccb1c5a6d63"
+content-hash = "c840a4081ddfb3911715d223636a494273f44c7ee6cc7173c273d3a0138fa82c"
 
 [metadata.files]
 anyio = [

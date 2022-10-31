@@ -3,6 +3,9 @@
         "attribs",
         "Geofox",
         "GPIO",
-        "httpx"
+        "httpx",
+        "jetzt",
+        "UBAHN",
+        "XPRESSBUS"
     ]
 }
