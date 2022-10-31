@@ -1,9 +1,10 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import httpx
 
 from ...client import Client
 from ...models.vehicle_map_request import VehicleMapRequest
+from ...models.vehicle_map_response import VehicleMapResponse
 from ...types import Response
 
 
@@ -29,12 +30,20 @@ def _get_kwargs(
     }
 
 
-def _build_response(*, response: httpx.Response) -> Response[Any]:
+def _parse_response(*, response: httpx.Response) -> Optional[VehicleMapResponse]:
+    if response.status_code == 200:
+        response_200 = VehicleMapResponse.from_dict(response.json())
+
+        return response_200
+    return None
+
+
+def _build_response(*, response: httpx.Response) -> Response[VehicleMapResponse]:
     return Response(
         status_code=response.status_code,
         content=response.content,
         headers=response.headers,
-        parsed=None,
+        parsed=_parse_response(response=response),
     )
 
 
@@ -42,13 +51,13 @@ def sync_detailed(
     *,
     client: Client,
     json_body: VehicleMapRequest,
-) -> Response[Any]:
+) -> Response[VehicleMapResponse]:
     """
     Args:
         json_body (VehicleMapRequest):
 
     Returns:
-        Response[Any]
+        Response[VehicleMapResponse]
     """
 
     kwargs = _get_kwargs(
@@ -64,17 +73,36 @@ def sync_detailed(
     return _build_response(response=response)
 
 
-async def asyncio_detailed(
+def sync(
     *,
     client: Client,
     json_body: VehicleMapRequest,
-) -> Response[Any]:
+) -> Optional[VehicleMapResponse]:
     """
     Args:
         json_body (VehicleMapRequest):
 
     Returns:
-        Response[Any]
+        Response[VehicleMapResponse]
+    """
+
+    return sync_detailed(
+        client=client,
+        json_body=json_body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    *,
+    client: Client,
+    json_body: VehicleMapRequest,
+) -> Response[VehicleMapResponse]:
+    """
+    Args:
+        json_body (VehicleMapRequest):
+
+    Returns:
+        Response[VehicleMapResponse]
     """
 
     kwargs = _get_kwargs(
@@ -86,3 +114,24 @@ async def asyncio_detailed(
         response = await _client.request(**kwargs)
 
     return _build_response(response=response)
+
+
+async def asyncio(
+    *,
+    client: Client,
+    json_body: VehicleMapRequest,
+) -> Optional[VehicleMapResponse]:
+    """
+    Args:
+        json_body (VehicleMapRequest):
+
+    Returns:
+        Response[VehicleMapResponse]
+    """
+
+    return (
+        await asyncio_detailed(
+            client=client,
+            json_body=json_body,
+        )
+    ).parsed

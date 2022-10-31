@@ -1,9 +1,10 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import httpx
 
 from ...client import Client
 from ...models.tariff_zone_neighbours_request import TariffZoneNeighboursRequest
+from ...models.tariff_zone_neighbours_response import TariffZoneNeighboursResponse
 from ...types import Response
 
 
@@ -29,12 +30,24 @@ def _get_kwargs(
     }
 
 
-def _build_response(*, response: httpx.Response) -> Response[Any]:
+def _parse_response(
+    *, response: httpx.Response
+) -> Optional[TariffZoneNeighboursResponse]:
+    if response.status_code == 200:
+        response_200 = TariffZoneNeighboursResponse.from_dict(response.json())
+
+        return response_200
+    return None
+
+
+def _build_response(
+    *, response: httpx.Response
+) -> Response[TariffZoneNeighboursResponse]:
     return Response(
         status_code=response.status_code,
         content=response.content,
         headers=response.headers,
-        parsed=None,
+        parsed=_parse_response(response=response),
     )
 
 
@@ -42,13 +55,13 @@ def sync_detailed(
     *,
     client: Client,
     json_body: TariffZoneNeighboursRequest,
-) -> Response[Any]:
+) -> Response[TariffZoneNeighboursResponse]:
     """
     Args:
         json_body (TariffZoneNeighboursRequest):
 
     Returns:
-        Response[Any]
+        Response[TariffZoneNeighboursResponse]
     """
 
     kwargs = _get_kwargs(
@@ -64,17 +77,36 @@ def sync_detailed(
     return _build_response(response=response)
 
 
-async def asyncio_detailed(
+def sync(
     *,
     client: Client,
     json_body: TariffZoneNeighboursRequest,
-) -> Response[Any]:
+) -> Optional[TariffZoneNeighboursResponse]:
     """
     Args:
         json_body (TariffZoneNeighboursRequest):
 
     Returns:
-        Response[Any]
+        Response[TariffZoneNeighboursResponse]
+    """
+
+    return sync_detailed(
+        client=client,
+        json_body=json_body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    *,
+    client: Client,
+    json_body: TariffZoneNeighboursRequest,
+) -> Response[TariffZoneNeighboursResponse]:
+    """
+    Args:
+        json_body (TariffZoneNeighboursRequest):
+
+    Returns:
+        Response[TariffZoneNeighboursResponse]
     """
 
     kwargs = _get_kwargs(
@@ -86,3 +118,24 @@ async def asyncio_detailed(
         response = await _client.request(**kwargs)
 
     return _build_response(response=response)
+
+
+async def asyncio(
+    *,
+    client: Client,
+    json_body: TariffZoneNeighboursRequest,
+) -> Optional[TariffZoneNeighboursResponse]:
+    """
+    Args:
+        json_body (TariffZoneNeighboursRequest):
+
+    Returns:
+        Response[TariffZoneNeighboursResponse]
+    """
+
+    return (
+        await asyncio_detailed(
+            client=client,
+            json_body=json_body,
+        )
+    ).parsed

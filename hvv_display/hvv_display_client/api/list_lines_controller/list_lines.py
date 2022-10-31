@@ -1,9 +1,10 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import httpx
 
 from ...client import Client
 from ...models.ll_request import LLRequest
+from ...models.ll_response import LLResponse
 from ...types import Response
 
 
@@ -29,12 +30,20 @@ def _get_kwargs(
     }
 
 
-def _build_response(*, response: httpx.Response) -> Response[Any]:
+def _parse_response(*, response: httpx.Response) -> Optional[LLResponse]:
+    if response.status_code == 200:
+        response_200 = LLResponse.from_dict(response.json())
+
+        return response_200
+    return None
+
+
+def _build_response(*, response: httpx.Response) -> Response[LLResponse]:
     return Response(
         status_code=response.status_code,
         content=response.content,
         headers=response.headers,
-        parsed=None,
+        parsed=_parse_response(response=response),
     )
 
 
@@ -42,13 +51,13 @@ def sync_detailed(
     *,
     client: Client,
     json_body: LLRequest,
-) -> Response[Any]:
+) -> Response[LLResponse]:
     """
     Args:
         json_body (LLRequest):
 
     Returns:
-        Response[Any]
+        Response[LLResponse]
     """
 
     kwargs = _get_kwargs(
@@ -64,17 +73,36 @@ def sync_detailed(
     return _build_response(response=response)
 
 
-async def asyncio_detailed(
+def sync(
     *,
     client: Client,
     json_body: LLRequest,
-) -> Response[Any]:
+) -> Optional[LLResponse]:
     """
     Args:
         json_body (LLRequest):
 
     Returns:
-        Response[Any]
+        Response[LLResponse]
+    """
+
+    return sync_detailed(
+        client=client,
+        json_body=json_body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    *,
+    client: Client,
+    json_body: LLRequest,
+) -> Response[LLResponse]:
+    """
+    Args:
+        json_body (LLRequest):
+
+    Returns:
+        Response[LLResponse]
     """
 
     kwargs = _get_kwargs(
@@ -86,3 +114,24 @@ async def asyncio_detailed(
         response = await _client.request(**kwargs)
 
     return _build_response(response=response)
+
+
+async def asyncio(
+    *,
+    client: Client,
+    json_body: LLRequest,
+) -> Optional[LLResponse]:
+    """
+    Args:
+        json_body (LLRequest):
+
+    Returns:
+        Response[LLResponse]
+    """
+
+    return (
+        await asyncio_detailed(
+            client=client,
+            json_body=json_body,
+        )
+    ).parsed
