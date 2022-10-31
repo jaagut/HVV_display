@@ -21,7 +21,8 @@ To correctly parse the OpenAPI json, find and replace `*/*` with `application/js
 
 ## TODOs
 
-- [ ] Use client
-- [ ] Request and cache line icons
+- [x] Use client
+- [ ] Test client
+- [x] Load line icons
 - [ ] Generate image
 - [ ] Display image

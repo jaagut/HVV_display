@@ -1,9 +1,11 @@
 #! /usr/bin/env python3
 
-import logging
+import os
 import time
+import glob
+import logging
 from pathlib import Path
-from typing import Any, Optional, Dict, List
+from typing import Any, Dict, List
 
 import yaml
 from PIL import Image
@@ -24,14 +26,14 @@ class HvvDisplay:
         self.logger = logging.getLogger("HvvDisplay")
         self.logger.info("Initializing HvvDisplay...")
 
-        self.icons: Dict[str, Image] = {}  # Caches icons of transit lines
-
         with open(Path(__file__.parent.parent / "config.yaml"), "r") as f:
             self.config: Dict[str, Any] = yaml.safe_load(f)
 
         self.client: AuthenticatedClient = self.connect()
         if self.client is None:  # Connection could not be established
             return  # Exit
+
+        self.icons: Dict[str, Image.Image] = self.load_line_icons(Path(__file__).parent.parent / "icons")
 
         self.run(self.config["update_period"], self.config['max_failures'])
 
@@ -88,7 +90,7 @@ class HvvDisplay:
                 self.logger.debug("Updating...")
                 try:
                     departures: List[models.Departure] = self.get_departures()
-                    canvas: Image = self.draw(departures)
+                    canvas: Image.Image = self.draw(departures)
                     self.show(canvas)
                 except (
                     RuntimeWarning,
@@ -136,21 +138,35 @@ class HvvDisplay:
             self.logger.warning(f"Could not receive departures successfully. Error: '{dl_response.return_code}'\n'{dl_response.error_text}'\n'{dl_response.error_dev_info}'")
             raise RuntimeWarning(dl_response.error_dev_info)
 
-    def draw(self, departures: List[models.Departure]) -> Image:
+    def draw(self, departures: List[models.Departure]) -> Image.Image:
         """Draws departures on a blank canvas.
 
         :param departures: List of departures to draw
         :type departures: List[models.Departure]
         :return: Canvas with drawn departures
-        :rtype: Image
+        :rtype: Image.Image
         """
 
-    def show(self, canvas: Image) -> None:
+    def show(self, canvas: Image.Image) -> None:
         """Shows the canvas on the LED Matrix display.
 
         :param canvas: Canvas to show
-        :type canvas: Image
+        :type canvas: Image.Image
         """
+
+    def load_line_icons(self, directory: str | Path) -> Dict[str, Image.Image]:
+        """Load available line icons (.PNG) from directory.
+
+        :param directory: Directory where to load icons from
+        :type directory: str | Path
+        :return: Dict of icon images
+        :rtype: Dict[str, Image.Image]
+        """
+        icons : Dict[str, Image.Image] = {}
+        for png in glob.glob(str(directory) + "/*.png"):
+            with Image.open(png, mode="r") as im:
+                icons[os.path.basename(png).split(".")[0]] = im
+        return icons
 
 
 if __name__ == "__main__":
