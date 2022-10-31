@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 
 from hvv_display.hvv_display_client.client import AuthenticatedClient
 from hvv_display.hvv_display_client import models
@@ -34,6 +34,7 @@ class HvvDisplay:
             return  # Exit
 
         self.icons: Dict[str, Image.Image] = self.load_line_icons(Path(__file__).parent.parent / "icons")
+        self.font: ImageFont.ImageFont = ImageFont.truetype(self.config['canvas']['font'], self.config['canvas']['line_height'])
 
         self.run(self.config["update_period"], self.config['max_failures'])
 
@@ -146,6 +147,47 @@ class HvvDisplay:
         :return: Canvas with drawn departures
         :rtype: Image.Image
         """
+        canvas = Image.new("RGB", (self.config['canvas']['width'], self.config['canvas']['height']))
+        drawer = ImageDraw.Draw(canvas)
+
+        def draw_departure(departure: models.Departure, y_offset: int):
+            """Draw a departure on the canvas. Includes:
+            - Line icon,
+            - Destination,
+            - Relative departure time in minutes (e.g. in "2 min")
+
+            :param departure: Departure to draw
+            :type departure: models.Departure
+            :param y_offset: Offset in pixels on the height axis
+            :type y_offset: int
+            """
+            def clip_text(text: str, max_width: int) -> str:
+                """Returns substring (clipped), that fits into the max_width box
+
+                :param text: Text to clip
+                :type text: str
+                :param max_width: Maximal width in pixels of clipped text
+                :type max_width: int
+                :return: Clipped text
+                :rtype: str
+                """
+                clipped_text : str = ""
+                i : int = 0
+
+                while i <= len(text) and self.font.getsize(clipped_text)[1] < max_width:
+                    clipped_text += text[i]
+                    i += 1
+
+                return clipped_text
+
+            # TODO Select icon from departure and use real data
+            canvas.paste(self.icons['X22'], (0, y_offset))
+            drawer.text((self.config['canvas']['icon_width'] + 1, y_offset - 2), clip_text("Hagenbecks Tierpark", 80), font=self.font)  # Font is smaller, therefore we are move it up (-2)
+            drawer.text((self.config['canvas']['icon_width'] + 1 + 80 + 1, y_offset - 2), clip_text("3m", 80), font=self.font)  # Font is smaller, therefore we are move it up (-2)
+
+        for i, departure in enumerate(departures):
+            draw_departure(departure, i * self.config['canvas']['line_height'] + i)  # Offset is line height + 1 px margin between
+        return canvas
 
     def show(self, canvas: Image.Image) -> None:
         """Shows the canvas on the LED Matrix display.

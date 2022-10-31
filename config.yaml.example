@@ -17,3 +17,7 @@ request:
 canvas:
   width: 128  # 64*2
   height: 32
+  lines: 3
+  line_height: 10
+  icon_width: 32
+  font: "/.local/share/fonts/Roboto/Roboto-Regular.ttf"  # TODO
