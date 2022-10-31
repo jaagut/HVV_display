@@ -7,12 +7,14 @@ from typing import List, Dict
 from PIL import Image
 from hvv_display_client.client import AuthenticatedClient
 
+logging.basicConfig(level=logging.DEBUG)  # TODO: INFO
 
 class HvvDisplay:
     """This is the main class glueing the API client to the LED Matrix display."""
 
     def __init__(self):
         self.logger = logging.getLogger('HvvDisplay')
+        self.logger.info("Initializing HvvDisplay...")
 
         self.icons: Dict[str, Image] = {}  # Caches icons of transit lines
 
@@ -26,8 +28,8 @@ class HvvDisplay:
         :return: Connected client
         :rtype: AuthenticatedClient
         """
-        base_url: str = os.environ.get("HVV_API_URL").strip()
-        token: str = os.environ.get("HVV_API_token").strip()
+        base_url: str = os.environ.get("HVV_API_URL", "").strip()
+        token: str = os.environ.get("HVV_API_token", "").strip()
 
         client = AuthenticatedClient(base_url, token)
         return client
@@ -82,3 +84,7 @@ class HvvDisplay:
         :type canvas: Image
         """
         pass
+
+
+if __name__ == "__main__":
+    HvvDisplay()
